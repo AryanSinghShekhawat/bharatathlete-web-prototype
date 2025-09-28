@@ -1,335 +1,202 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <title>BharatAthlete — Web Prototype</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Roboto, Arial; margin:0; padding:12px; background:#0f172a; color:#e6eef8; }
-    header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    h1 { margin:0; font-size:20px; color:#fff; }
-    .card { background:#111827; padding:12px; border-radius:10px; margin-top:12px; box-shadow:0 6px 18px rgba(2,6,23,.6); }
-    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-    button { background:#06b6d4; color:#042028; padding:10px 12px; border:none; border-radius:8px; font-weight:600; }
-    input[type="number"]{ padding:8px; border-radius:8px; border:none; width:120px; }
-    video { border-radius:10px; width:100%; max-width:420px; background:#000; }
-    canvas { position: absolute; left:12px; top: 200px; }
-    .row { display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; }
-    .metric { background:#071029; padding:10px; border-radius:8px; min-width:120px; text-align:center; }
-    .badge { padding:6px 8px; border-radius:999px; background:linear-gradient(90deg,#f59e0b,#ef4444); color:#111; font-weight:700; display:inline-block; }
-    footer { margin-top:18px; font-size:13px; color:#9aa8bf; }
-    @media (min-width:880px){ .layout{ display:flex; gap:18px; } .left{flex:1} .right{width:420px} }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BharatAthlete - Ultimate Web Prototype</title>
+<style>
+  /* ========== GENERAL STYLES ========== */
+  body { margin:0; padding:0; font-family:sans-serif; background:#0b0f23; color:#e0eaff; }
+  h1,h2,h3,h4 { margin:0; }
+  .container { max-width:1200px; margin:auto; padding:10px; }
+  .flex { display:flex; gap:10px; flex-wrap:wrap; }
+  .card { background:#11162a; padding:15px; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.4); }
+  button { background:#06b6d4; color:#000; border:none; padding:10px 15px; border-radius:8px; font-weight:600; cursor:pointer; }
+  input[type=number], input[type=text] { padding:8px; border-radius:8px; border:none; width:120px; }
+  video { border-radius:12px; width:100%; max-width:480px; background:#000; }
+  canvas { position:absolute; top:0; left:0; }
+  .metric { text-align:center; padding:8px; border-radius:8px; background:#071029; min-width:110px; }
+  .badge { display:inline-block; padding:6px 10px; border-radius:50px; background:linear-gradient(90deg,#f59e0b,#ef4444); color:#111; font-weight:700; }
+  .leaderboard, .log { max-height:250px; overflow-y:auto; font-size:14px; }
+  .confetti { pointer-events:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:999; }
+  @media(max-width:900px){ .flex{flex-direction:column;} }
+</style>
 </head>
 <body>
-  <header>
+<div class="container">
+  <header class="flex" style="justify-content:space-between; align-items:center;">
+    <h1>BharatAthlete</h1>
     <div>
-      <h1>BharatAthlete — Web Prototype</h1>
-      <div style="font-size:12px;color:#9aa8bf">Demo: pose detection | jump + rep metrics | cheat heuristics | offline save</div>
-    </div>
-    <div style="text-align:right">
-      <div class="badge" id="userBadge">Novice</div>
-      <div style="font-size:12px;color:#9aa8bf">Streak: <span id="streak">0</span> days</div>
+      <div class="badge" id="userBadge">Novice</div><br>
+      <span>Streak: <span id="streak">0</span> days</span>
     </div>
   </header>
 
-  <div class="layout" style="margin-top:12px">
-    <div class="left">
+  <!-- MAIN CONTENT -->
+  <div class="flex" style="margin-top:10px;">
+    <div class="left" style="flex:1; position:relative;">
       <div class="card">
-        <div style="display:flex;gap:8px;align-items:center;">
+        <h3>Setup & Calibration</h3>
+        <div class="flex" style="gap:8px; margin-top:8px;">
           <label>Height (cm)</label>
-          <input id="heightInput" type="number" placeholder="e.g. 170" />
+          <input type="number" id="heightInput" placeholder="e.g. 170">
           <button id="calibrateBtn">Calibrate</button>
           <button id="startCamBtn">Start Camera</button>
         </div>
-
-        <div style="position:relative;margin-top:12px">
-          <video id="video" playsinline autoplay muted></video>
-          <canvas id="overlay" width="420" height="315" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
+        <div style="position:relative; margin-top:12px;">
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="overlay" width="480" height="360"></canvas>
         </div>
-
-        <div class="controls">
+        <div class="flex" style="margin-top:8px; flex-wrap:wrap;">
           <button id="startTestBtn">Start Test</button>
           <button id="stopTestBtn">Stop Test</button>
           <button id="saveBtn">Save Result</button>
-          <button id="syncBtn">Sync (simulate)</button>
+          <button id="syncBtn">Sync</button>
         </div>
       </div>
 
-      <div class="card" style="margin-top:12px">
-        <div style="font-weight:700">Live Metrics</div>
-        <div class="row" style="margin-top:8px">
-          <div class="metric">Jump (cm)<div id="jumpVal" style="font-size:20px;font-weight:700">0</div></div>
-          <div class="metric">Reps<div id="repsVal" style="font-size:20px;font-weight:700">0</div></div>
-          <div class="metric">Cheat Score<div id="cheatVal" style="font-size:20px;font-weight:700">0.0</div></div>
-          <div class="metric">Score<div id="scoreVal" style="font-size:20px;font-weight:700">0</div></div>
+      <div class="card" style="margin-top:12px;">
+        <h3>Live Metrics</h3>
+        <div class="flex" style="margin-top:8px;">
+          <div class="metric">Jump (cm)<br><span id="jumpVal">0</span></div>
+          <div class="metric">Reps<br><span id="repsVal">0</span></div>
+          <div class="metric">Cheat Score<br><span id="cheatVal">0.0</span></div>
+          <div class="metric">Score<br><span id="scoreVal">0</span></div>
         </div>
       </div>
     </div>
 
-    <div class="right">
+    <!-- RIGHT PANEL -->
+    <div class="right" style="width:420px;">
       <div class="card">
-        <div style="font-weight:700">Activity Log</div>
-        <div id="log" style="margin-top:8px; max-height:300px; overflow:auto; font-size:13px; color:#cfe7ff"></div>
+        <h3>Leaderboard</h3>
+        <div class="leaderboard" id="leaderboard"></div>
       </div>
-
-      <div class="card" style="margin-top:12px">
-        <div style="font-weight:700">How to use</div>
-        <ol style="margin-top:8px">
-          <li>Allow camera access on your phone.</li>
-          <li>Enter height & hit <b>Calibrate</b> (stand straight).</li>
-          <li>Hit <b>Start Test</b> and perform test; then <b>Stop</b>.</li>
-          <li>Save result & press <b>Sync</b> to simulate upload.</li>
-        </ol>
+      <div class="card" style="margin-top:12px;">
+        <h3>Activity Log</h3>
+        <div class="log" id="log"></div>
+      </div>
+      <div class="card" style="margin-top:12px;">
+        <h3>Profile & Avatar</h3>
+        <div class="flex">
+          <input type="text" id="username" placeholder="Enter Name">
+          <button id="setAvatarBtn">Set Avatar</button>
+        </div>
+        <img id="avatarImg" src="https://i.imgur.com/6YVJr2G.png" width="80" height="80" style="margin-top:8px; border-radius:50%;">
+      </div>
+      <div class="card" style="margin-top:12px;">
+        <h3>Performance History</h3>
+        <canvas id="chart" width="400" height="200"></canvas>
       </div>
     </div>
   </div>
+</div>
 
-  <footer>Tip: Use Chrome on Android for best compatibility. If model is slow, close other tabs.</footer>
+<div id="confettiContainer" class="confetti"></div>
 
-  <!-- TFJS & Pose Detection libs (CDN) -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.4.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.4.6/dist/pose-detection.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1646424915/pose.js"></script>
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.4.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.4.6/dist/pose-detection.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1646424915/pose.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <script>
-  (async ()=>{
+<script>
+(async ()=>{
+  const video=document.getElementById('video');
+  const overlay=document.getElementById('overlay');
+  const ctx=overlay.getContext('2d');
+  const startCamBtn=document.getElementById('startCamBtn');
+  const startTestBtn=document.getElementById('startTestBtn');
+  const stopTestBtn=document.getElementById('stopTestBtn');
+  const calibrateBtn=document.getElementById('calibrateBtn');
+  const saveBtn=document.getElementById('saveBtn');
+  const syncBtn=document.getElementById('syncBtn');
+  const logDiv=document.getElementById('log');
+  const leaderboardDiv=document.getElementById('leaderboard');
+  const heightInput=document.getElementById('heightInput');
+  const jumpVal=document.getElementById('jumpVal');
+  const repsVal=document.getElementById('repsVal');
+  const cheatVal=document.getElementById('cheatVal');
+  const scoreVal=document.getElementById('scoreVal');
+  const badgeEl=document.getElementById('userBadge');
+  const streakEl=document.getElementById('streak');
+  const usernameInput=document.getElementById('username');
+  const setAvatarBtn=document.getElementById('setAvatarBtn');
+  const avatarImg=document.getElementById('avatarImg');
+  const confettiContainer=document.getElementById('confettiContainer');
+  const chartCtx=document.getElementById('chart').getContext('2d');
 
-    // UI refs
-    const video = document.getElementById('video');
-    const overlay = document.getElementById('overlay');
-    const ctx = overlay.getContext('2d');
-    const startCamBtn = document.getElementById('startCamBtn');
-    const startTestBtn = document.getElementById('startTestBtn');
-    const stopTestBtn = document.getElementById('stopTestBtn');
-    const calibrateBtn = document.getElementById('calibrateBtn');
-    const saveBtn = document.getElementById('saveBtn');
-    const syncBtn = document.getElementById('syncBtn');
-    const logDiv = document.getElementById('log');
-    const heightInput = document.getElementById('heightInput');
+  let detector=null, running=false, measuring=false, calibration=null, lastAnkleY=null;
+  let recordedFrames=[], jumpPeak=0, jumpCm=0, reps=0, score=0, cheatScore=0, history=[];
 
-    const jumpVal = document.getElementById('jumpVal');
-    const repsVal = document.getElementById('repsVal');
-    const cheatVal = document.getElementById('cheatVal');
-    const scoreVal = document.getElementById('scoreVal');
-    const badgeEl = document.getElementById('userBadge');
-    const streakEl = document.getElementById('streak');
+  let chart=new Chart(chartCtx,{type:'line',data:{labels:[],datasets:[{label:'Score',data:[],borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.2)'}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
 
-    // internal state
-    let detector = null;
-    let running = false;
-    let measuring = false;
-    let calibration = null; // {pixelHeight, scale}
-    let baselineAnkleY = null;
-    let recordedFrames = [];
-    let lastAnkleY = null;
-    let jumpPeak = 0;
-    let jumpCm = 0;
-    let reps = 0;
-    let score = 0;
-    let cheatScore = 0;
+  function log(msg){ const p=document.createElement('div'); p.innerText='['+new Date().toLocaleTimeString()+'] '+msg; logDiv.prepend(p); }
 
-    // init detector (MoveNet Lightning)
-    async function initDetector(){
-      try{
-        await tf.setBackend('webgl');
-        detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-          modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
-        });
-        log('Pose detector ready');
-      }catch(err){
-        log('Detector init failed: ' + err);
-      }
+  function updateLeaderboard(){
+    leaderboardDiv.innerHTML='';
+    let data=JSON.parse(localStorage.getItem('ba_results')||'[]');
+    data.sort((a,b)=>b.score-a.score);
+    data.slice(0,10).forEach((r,i)=>{
+      let div=document.createElement('div');
+      div.innerHTML=`${i+1}. ${r.username||'Anon'} - Score: ${r.score}`;
+      leaderboardDiv.appendChild(div);
+    });
+  }
+
+  function awardBadge(points){
+    if(points>80) badgeEl.innerText='Elite';
+    else if(points>50) badgeEl.innerText='Pro';
+    else if(points>20) badgeEl.innerText='Rising';
+    else badgeEl.innerText='Novice';
+  }
+
+  function confettiBurst(){
+    confettiContainer.innerHTML='';
+    for(let i=0;i<100;i++){
+      let div=document.createElement('div');
+      div.style.width='6px'; div.style.height='6px'; div.style.background=['#f59e0b','#ef4444','#06b6d4','#22c55e'][Math.floor(Math.random()*4)];
+      div.style.position='absolute'; div.style.left=Math.random()*100+'%';
+      div.style.top='0%'; div.style.opacity=Math.random();
+      div.style.transform=`rotate(${Math.random()*360}deg)`;
+      confettiContainer.appendChild(div);
+      let y=0;
+      let intv=setInterval(()=>{
+        y+=Math.random()*5;
+        div.style.top=y+'px';
+        if(y>window.innerHeight) clearInterval(intv);
+      },20);
     }
+  }
 
-    // start camera
-    startCamBtn.onclick = async ()=>{
-      if (navigator.mediaDevices?.getUserMedia){
-        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
-        video.srcObject = stream;
-        await video.play();
-        overlay.width = video.videoWidth || 420;
-        overlay.height = video.videoHeight || 315;
-        log('Camera started');
-        if (!detector) await initDetector();
-      } else {
-        alert('Camera not supported on this browser.');
-      }
-    };
+  async function initDetector(){
+    await tf.setBackend('webgl');
+    detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+    log('Detector ready');
+  }
 
-    // calibration: stand straight and compute pixel height
-    calibrateBtn.onclick = async ()=>{
-      if (!detector || !video.srcObject) { alert('Start camera first'); return; }
-      log('Calibrating — stand straight in frame for 2 seconds');
-      const samples = [];
-      for (let i=0;i<20;i++){
-        const poses = await detector.estimatePoses(video, {flipHorizontal:false});
-        if (poses && poses[0] && poses[0].keypoints){
-          const ys = poses[0].keypoints.map(k=>k.y).filter(y=>y!=null);
-          if (ys.length) samples.push(Math.max(...ys) - Math.min(...ys));
-        }
-        await new Promise(r=>setTimeout(r,100));
-      }
-      if (samples.length===0){ alert('Calibration failed — move into frame'); return; }
-      const medianPixel = samples.sort((a,b)=>a-b)[Math.floor(samples.length/2)];
-      const hcm = parseFloat(heightInput.value);
-      if (!hcm){ alert('Enter height in cm for calibration'); return; }
-      calibration = {pixelHeight: medianPixel, scale: hcm/medianPixel};
-      log('Calibration done — scale: ' + calibration.scale.toFixed(4) + ' cm/pixel');
-    };
+  startCamBtn.onclick=async ()=>{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    video.srcObject=stream; await video.play();
+    overlay.width=video.videoWidth||480; overlay.height=video.videoHeight||360;
+    if(!detector) await initDetector();
+    log('Camera started');
+  };
 
-    // start/stop test
-    startTestBtn.onclick = ()=>{ if (!calibration) { alert('Calibrate first'); return; } measuring=true; running=true; resetMetrics(); loop(); log('Test started'); };
-    stopTestBtn.onclick = ()=>{ measuring=false; running=false; finalizeMetrics(); log('Test stopped'); };
-
-    function resetMetrics(){
-      recordedFrames = []; lastAnkleY=null; jumpPeak=0; jumpCm=0; reps=0; cheatScore=0; score=0;
-      jumpVal.innerText='0'; repsVal.innerText='0'; cheatVal.innerText='0.0'; scoreVal.innerText='0';
+  calibrateBtn.onclick=async ()=>{
+    if(!detector){ alert('Start camera first'); return; }
+    const h=parseFloat(heightInput.value);
+    if(!h){ alert('Enter height'); return; }
+    let samples=[];
+    for(let i=0;i<20;i++){
+      const poses=await detector.estimatePoses(video,{flipHorizontal:false});
+      if(poses[0]){ const ys=poses[0].keypoints.map(k=>k.y).filter(y=>y!=null); if(ys.length) samples.push(Math.max(...ys)-Math.min(...ys)); }
+      await new Promise(r=>setTimeout(r,100));
     }
+    if(samples.length==0){ alert('Calibration failed'); return; }
+    const medianPixel=samples.sort((a,b)=>a-b)[Math.floor(samples.length/2)];
+    calibration={pixelHeight:medianPixel, scale:h/medianPixel};
+    log('Calibration done. Scale: '+calibration.scale.toFixed(4));
+  };
 
-    async function loop(){
-      if (!running) return;
-      if (!detector) { await initDetector(); }
-      try{
-        const poses = await detector.estimatePoses(video, {flipHorizontal:false});
-        drawOverlay(poses);
-        if (measuring && poses && poses[0]){
-          const kp = poses[0].keypoints;
-          recordedFrames.push(kp);
-          // compute ankle Y (use smaller y => higher on screen)
-          const la = kp.find(x=>x.name==='left_ankle') || kp.find((x,i)=>x.name=='left_ankle');
-          const ra = kp.find(x=>x.name==='right_ankle') || kp.find((x,i)=>x.name=='right_ankle');
-          const ankleY = Math.min( (la?.y||9999), (ra?.y||9999) );
-          if (lastAnkleY==null) lastAnkleY = ankleY;
-          // detect jump: ankleY decreases then increases
-          if (ankleY < lastAnkleY - 6){ // upward move (pixel)
-            jumpPeak = Math.min(jumpPeak, ankleY); // smaller means higher on screen
-          }
-          if (ankleY > lastAnkleY + 8){ // back down
-            if (jumpPeak < lastAnkleY - 6){
-              // compute pixel jump = lastAnkleY - jumpPeak
-              const pixelJump = (lastAnkleY - jumpPeak);
-              jumpCm = pixelJump * calibration.scale;
-              jumpVal.innerText = jumpCm.toFixed(1);
-              // award points
-              score += Math.round(Math.min(50, jumpCm));
-            }
-            jumpPeak = lastAnkleY;
-          }
-          lastAnkleY = ankleY;
-
-          // simple rep counter (sit-up / torso movement) using hip y change
-          const lHip = kp.find(x=>x.name==='left_hip') || kp.find(x=>x.name=='left_hip');
-          const rHip = kp.find(x=>x.name==='right_hip') || kp.find(x=>x.name=='right_hip');
-          const hipY = Math.min(lHip?.y||9999, rHip?.y||9999);
-          // naive threshold: look for big oscillations
-          if (!measuring._hipPrev) measuring._hipPrev = hipY;
-          if (hipY < measuring._hipPrev - 6) { measuring._hipFlag = true; }
-          if (measuring._hipFlag && hipY > measuring._hipPrev + 6) { reps++; measuring._hipFlag=false; score += 5; repsVal.innerText = reps; }
-          measuring._hipPrev = hipY;
-
-          // cheat detection: too many identical frames or extreme brightness changes
-          cheatScore = computeCheatScore(recordedFrames);
-          cheatVal.innerText = cheatScore.toFixed(2);
-          scoreVal.innerText = score;
-          awardBadge(score);
-        }
-      }catch(err){
-        console.warn('loop error',err);
-      }
-      requestAnimationFrame(loop);
-    }
-
-    function computeCheatScore(frames){
-      // small heuristic: if recent frames are almost identical -> suspicious
-      if (!frames || frames.length<6) return 0.0;
-      let identical = 0;
-      const last = frames.slice(-6);
-      for (let i=1;i<last.length;i++){
-        const s0 = last[i-1].map(k=>Math.round((k.x+k.y)*100)).join(',');
-        const s1 = last[i].map(k=>Math.round((k.x+k.y)*100)).join(',');
-        if (s0===s1) identical++;
-      }
-      const ratio = identical/ (last.length-1);
-      return Math.min(1, ratio*2); // normalized
-    }
-
-    function finalizeMetrics(){
-      // save to localStorage as saved result
-      const item = {
-        timestamp: Date.now(),
-        jumpCm: Number(jumpCm.toFixed(1)),
-        reps, cheatScore: Number(cheatScore.toFixed(3)), score
-      };
-      saveLocal(item);
-      log('Saved result: ' + JSON.stringify(item));
-    }
-
-    function saveLocal(item){
-      const list = JSON.parse(localStorage.getItem('ba_results') || '[]');
-      list.unshift(item);
-      localStorage.setItem('ba_results', JSON.stringify(list));
-      renderLog();
-    }
-
-    function renderLog(){
-      const list = JSON.parse(localStorage.getItem('ba_results') || '[]');
-      if (!list.length) { logDiv.innerHTML = '<div style="color:#9aa8bf">No results yet</div>'; return; }
-      logDiv.innerHTML = list.map(r=>`<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,.03)"><div style="font-weight:700">${new Date(r.timestamp).toLocaleString()}</div><div>Jump: ${r.jumpCm} cm • Reps: ${r.reps} • Score: ${r.score} • Cheat: ${r.cheatScore}</div></div>`).join('');
-    }
-
-    // Sync button simulates upload; in production you call your real API & show progress
-    syncBtn.onclick = async ()=>{
-      const list = JSON.parse(localStorage.getItem('ba_results') || '[]');
-      if (!list.length){ alert('No results to sync'); return; }
-      log('Syncing latest result to simulated SAI server (demo)...');
-      // Simulate network delay
-      await new Promise(r=>setTimeout(r,1200));
-      // pretend success and mark as synced
-      log('Sync completed — (demo) result marked as uploaded.');
-      // In real app: POST JSON to SAI endpoint, support background resume
-    };
-
-    saveBtn.onclick = ()=>{ finalizeMetrics(); alert('Result saved locally'); };
-
-    function log(msg){ const p = document.createElement('div'); p.innerText = '['+new Date().toLocaleTimeString()+'] '+msg; logDiv.prepend(p); }
-
-    function drawOverlay(poses){
-      ctx.clearRect(0,0,overlay.width,overlay.height);
-      if (!poses || !poses[0]) return;
-      const kps = poses[0].keypoints;
-      ctx.lineWidth = 2;
-      for (const k of kps){
-        if (k.score<0.4) continue;
-        ctx.beginPath();
-        ctx.fillStyle = '#06b6d4';
-        ctx.strokeStyle = '#fff';
-        ctx.arc(k.x, k.y, 4, 0, Math.PI*2);
-        ctx.fill();
-      }
-      // bones (simple)
-      const pairs = [['left_shoulder','right_shoulder'],['left_hip','right_hip'],['left_shoulder','left_hip'],['right_shoulder','right_hip'],['left_knee','left_ankle'],['right_knee','right_ankle']];
-      for (const p of pairs){
-        const a = kps.find(k=>k.name===p[0]);
-        const b = kps.find(k=>k.name===p[1]);
-        if (!a||!b||a.score<0.4||b.score<0.4) continue;
-        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle='#9aa8bf'; ctx.stroke();
-      }
-    }
-
-    // badges
-    function awardBadge(points){
-      if (points>80) badgeEl.innerText='Elite';
-      else if (points>50) badgeEl.innerText='Pro';
-      else if (points>20) badgeEl.innerText='Rising';
-      else badgeEl.innerText='Novice';
-    }
-
-    // init UI state
-    renderLog();
-    await initDetector();
-    log('Prototype ready. Start camera to begin.');
-  })();
-  </script>
-</body>
-</html>
+  startTestBtn.onclick
