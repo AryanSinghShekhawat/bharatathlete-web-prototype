@@ -117,3 +117,219 @@
 
     // internal state
     let detector = null;
+    let running = false;
+    let measuring = false;
+    let calibration = null; // {pixelHeight, scale}
+    let baselineAnkleY = null;
+    let recordedFrames = [];
+    let lastAnkleY = null;
+    let jumpPeak = 0;
+    let jumpCm = 0;
+    let reps = 0;
+    let score = 0;
+    let cheatScore = 0;
+
+    // init detector (MoveNet Lightning)
+    async function initDetector(){
+      try{
+        await tf.setBackend('webgl');
+        detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+          modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
+        });
+        log('Pose detector ready');
+      }catch(err){
+        log('Detector init failed: ' + err);
+      }
+    }
+
+    // start camera
+    startCamBtn.onclick = async ()=>{
+      if (navigator.mediaDevices?.getUserMedia){
+        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
+        video.srcObject = stream;
+        await video.play();
+        overlay.width = video.videoWidth || 420;
+        overlay.height = video.videoHeight || 315;
+        log('Camera started');
+        if (!detector) await initDetector();
+      } else {
+        alert('Camera not supported on this browser.');
+      }
+    };
+
+    // calibration: stand straight and compute pixel height
+    calibrateBtn.onclick = async ()=>{
+      if (!detector || !video.srcObject) { alert('Start camera first'); return; }
+      log('Calibrating — stand straight in frame for 2 seconds');
+      const samples = [];
+      for (let i=0;i<20;i++){
+        const poses = await detector.estimatePoses(video, {flipHorizontal:false});
+        if (poses && poses[0] && poses[0].keypoints){
+          const ys = poses[0].keypoints.map(k=>k.y).filter(y=>y!=null);
+          if (ys.length) samples.push(Math.max(...ys) - Math.min(...ys));
+        }
+        await new Promise(r=>setTimeout(r,100));
+      }
+      if (samples.length===0){ alert('Calibration failed — move into frame'); return; }
+      const medianPixel = samples.sort((a,b)=>a-b)[Math.floor(samples.length/2)];
+      const hcm = parseFloat(heightInput.value);
+      if (!hcm){ alert('Enter height in cm for calibration'); return; }
+      calibration = {pixelHeight: medianPixel, scale: hcm/medianPixel};
+      log('Calibration done — scale: ' + calibration.scale.toFixed(4) + ' cm/pixel');
+    };
+
+    // start/stop test
+    startTestBtn.onclick = ()=>{ if (!calibration) { alert('Calibrate first'); return; } measuring=true; running=true; resetMetrics(); loop(); log('Test started'); };
+    stopTestBtn.onclick = ()=>{ measuring=false; running=false; finalizeMetrics(); log('Test stopped'); };
+
+    function resetMetrics(){
+      recordedFrames = []; lastAnkleY=null; jumpPeak=0; jumpCm=0; reps=0; cheatScore=0; score=0;
+      jumpVal.innerText='0'; repsVal.innerText='0'; cheatVal.innerText='0.0'; scoreVal.innerText='0';
+    }
+
+    async function loop(){
+      if (!running) return;
+      if (!detector) { await initDetector(); }
+      try{
+        const poses = await detector.estimatePoses(video, {flipHorizontal:false});
+        drawOverlay(poses);
+        if (measuring && poses && poses[0]){
+          const kp = poses[0].keypoints;
+          recordedFrames.push(kp);
+          // compute ankle Y (use smaller y => higher on screen)
+          const la = kp.find(x=>x.name==='left_ankle') || kp.find((x,i)=>x.name=='left_ankle');
+          const ra = kp.find(x=>x.name==='right_ankle') || kp.find((x,i)=>x.name=='right_ankle');
+          const ankleY = Math.min( (la?.y||9999), (ra?.y||9999) );
+          if (lastAnkleY==null) lastAnkleY = ankleY;
+          // detect jump: ankleY decreases then increases
+          if (ankleY < lastAnkleY - 6){ // upward move (pixel)
+            jumpPeak = Math.min(jumpPeak, ankleY); // smaller means higher on screen
+          }
+          if (ankleY > lastAnkleY + 8){ // back down
+            if (jumpPeak < lastAnkleY - 6){
+              // compute pixel jump = lastAnkleY - jumpPeak
+              const pixelJump = (lastAnkleY - jumpPeak);
+              jumpCm = pixelJump * calibration.scale;
+              jumpVal.innerText = jumpCm.toFixed(1);
+              // award points
+              score += Math.round(Math.min(50, jumpCm));
+            }
+            jumpPeak = lastAnkleY;
+          }
+          lastAnkleY = ankleY;
+
+          // simple rep counter (sit-up / torso movement) using hip y change
+          const lHip = kp.find(x=>x.name==='left_hip') || kp.find(x=>x.name=='left_hip');
+          const rHip = kp.find(x=>x.name==='right_hip') || kp.find(x=>x.name=='right_hip');
+          const hipY = Math.min(lHip?.y||9999, rHip?.y||9999);
+          // naive threshold: look for big oscillations
+          if (!measuring._hipPrev) measuring._hipPrev = hipY;
+          if (hipY < measuring._hipPrev - 6) { measuring._hipFlag = true; }
+          if (measuring._hipFlag && hipY > measuring._hipPrev + 6) { reps++; measuring._hipFlag=false; score += 5; repsVal.innerText = reps; }
+          measuring._hipPrev = hipY;
+
+          // cheat detection: too many identical frames or extreme brightness changes
+          cheatScore = computeCheatScore(recordedFrames);
+          cheatVal.innerText = cheatScore.toFixed(2);
+          scoreVal.innerText = score;
+          awardBadge(score);
+        }
+      }catch(err){
+        console.warn('loop error',err);
+      }
+      requestAnimationFrame(loop);
+    }
+
+    function computeCheatScore(frames){
+      // small heuristic: if recent frames are almost identical -> suspicious
+      if (!frames || frames.length<6) return 0.0;
+      let identical = 0;
+      const last = frames.slice(-6);
+      for (let i=1;i<last.length;i++){
+        const s0 = last[i-1].map(k=>Math.round((k.x+k.y)*100)).join(',');
+        const s1 = last[i].map(k=>Math.round((k.x+k.y)*100)).join(',');
+        if (s0===s1) identical++;
+      }
+      const ratio = identical/ (last.length-1);
+      return Math.min(1, ratio*2); // normalized
+    }
+
+    function finalizeMetrics(){
+      // save to localStorage as saved result
+      const item = {
+        timestamp: Date.now(),
+        jumpCm: Number(jumpCm.toFixed(1)),
+        reps, cheatScore: Number(cheatScore.toFixed(3)), score
+      };
+      saveLocal(item);
+      log('Saved result: ' + JSON.stringify(item));
+    }
+
+    function saveLocal(item){
+      const list = JSON.parse(localStorage.getItem('ba_results') || '[]');
+      list.unshift(item);
+      localStorage.setItem('ba_results', JSON.stringify(list));
+      renderLog();
+    }
+
+    function renderLog(){
+      const list = JSON.parse(localStorage.getItem('ba_results') || '[]');
+      if (!list.length) { logDiv.innerHTML = '<div style="color:#9aa8bf">No results yet</div>'; return; }
+      logDiv.innerHTML = list.map(r=>`<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,.03)"><div style="font-weight:700">${new Date(r.timestamp).toLocaleString()}</div><div>Jump: ${r.jumpCm} cm • Reps: ${r.reps} • Score: ${r.score} • Cheat: ${r.cheatScore}</div></div>`).join('');
+    }
+
+    // Sync button simulates upload; in production you call your real API & show progress
+    syncBtn.onclick = async ()=>{
+      const list = JSON.parse(localStorage.getItem('ba_results') || '[]');
+      if (!list.length){ alert('No results to sync'); return; }
+      log('Syncing latest result to simulated SAI server (demo)...');
+      // Simulate network delay
+      await new Promise(r=>setTimeout(r,1200));
+      // pretend success and mark as synced
+      log('Sync completed — (demo) result marked as uploaded.');
+      // In real app: POST JSON to SAI endpoint, support background resume
+    };
+
+    saveBtn.onclick = ()=>{ finalizeMetrics(); alert('Result saved locally'); };
+
+    function log(msg){ const p = document.createElement('div'); p.innerText = '['+new Date().toLocaleTimeString()+'] '+msg; logDiv.prepend(p); }
+
+    function drawOverlay(poses){
+      ctx.clearRect(0,0,overlay.width,overlay.height);
+      if (!poses || !poses[0]) return;
+      const kps = poses[0].keypoints;
+      ctx.lineWidth = 2;
+      for (const k of kps){
+        if (k.score<0.4) continue;
+        ctx.beginPath();
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = '#fff';
+        ctx.arc(k.x, k.y, 4, 0, Math.PI*2);
+        ctx.fill();
+      }
+      // bones (simple)
+      const pairs = [['left_shoulder','right_shoulder'],['left_hip','right_hip'],['left_shoulder','left_hip'],['right_shoulder','right_hip'],['left_knee','left_ankle'],['right_knee','right_ankle']];
+      for (const p of pairs){
+        const a = kps.find(k=>k.name===p[0]);
+        const b = kps.find(k=>k.name===p[1]);
+        if (!a||!b||a.score<0.4||b.score<0.4) continue;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle='#9aa8bf'; ctx.stroke();
+      }
+    }
+
+    // badges
+    function awardBadge(points){
+      if (points>80) badgeEl.innerText='Elite';
+      else if (points>50) badgeEl.innerText='Pro';
+      else if (points>20) badgeEl.innerText='Rising';
+      else badgeEl.innerText='Novice';
+    }
+
+    // init UI state
+    renderLog();
+    await initDetector();
+    log('Prototype ready. Start camera to begin.');
+  })();
+  </script>
+</body>
+</html>
