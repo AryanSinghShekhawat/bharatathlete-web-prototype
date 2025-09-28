@@ -3,200 +3,132 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BharatAthlete - Ultimate Web Prototype</title>
+<title>BharatAthlete Demo - Gamified</title>
 <style>
-  /* ========== GENERAL STYLES ========== */
-  body { margin:0; padding:0; font-family:sans-serif; background:#0b0f23; color:#e0eaff; }
-  h1,h2,h3,h4 { margin:0; }
-  .container { max-width:1200px; margin:auto; padding:10px; }
-  .flex { display:flex; gap:10px; flex-wrap:wrap; }
-  .card { background:#11162a; padding:15px; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.4); }
-  button { background:#06b6d4; color:#000; border:none; padding:10px 15px; border-radius:8px; font-weight:600; cursor:pointer; }
-  input[type=number], input[type=text] { padding:8px; border-radius:8px; border:none; width:120px; }
-  video { border-radius:12px; width:100%; max-width:480px; background:#000; }
-  canvas { position:absolute; top:0; left:0; }
-  .metric { text-align:center; padding:8px; border-radius:8px; background:#071029; min-width:110px; }
-  .badge { display:inline-block; padding:6px 10px; border-radius:50px; background:linear-gradient(90deg,#f59e0b,#ef4444); color:#111; font-weight:700; }
-  .leaderboard, .log { max-height:250px; overflow-y:auto; font-size:14px; }
-  .confetti { pointer-events:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:999; }
-  @media(max-width:900px){ .flex{flex-direction:column;} }
+body{margin:0;padding:0;font-family:sans-serif;background:#0b0f23;color:#e0eaff;transition:background 0.5s;}
+h1,h2,h3{margin:0;}
+.container{max-width:1200px;margin:auto;padding:10px;}
+.flex{display:flex;gap:10px;flex-wrap:wrap;}
+.card{background:#11162a;padding:15px;border-radius:12px;box-shadow:0 5px 15px rgba(0,0,0,0.4);}
+button{background:#06b6d4;color:#000;border:none;padding:10px 15px;border-radius:12px;font-weight:600;cursor:pointer;transition:all 0.3s;}
+button:hover{transform:scale(1.05);box-shadow:0 0 15px #06b6d4;}
+.metric{position:relative;text-align:center;padding:8px;border-radius:8px;background:#071029;min-width:100px;transition:all 0.3s;}
+.badge{display:inline-block;padding:6px 10px;border-radius:50px;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#111;font-weight:700;animation:badgePulse 1s infinite alternate;}
+@keyframes badgePulse{0%{transform:scale(1);}100%{transform:scale(1.2);}}
+.progress-bar{width:100%;height:10px;background:#333;border-radius:5px;overflow:hidden;margin-top:4px;}
+.progress-fill{height:100%;width:0%;background:#06b6d4;transition:width 0.5s;}
+.leaderboard,.log{max-height:200px;overflow-y:auto;font-size:14px;margin-top:5px;}
+.confetti{pointer-events:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:999;}
+.notification{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#06b6d4;color:#000;padding:10px 15px;border-radius:10px;font-weight:700;animation:fadeOut 2s forwards;}
+@keyframes fadeOut{0%{opacity:1;}80%{opacity:1;}100%{opacity:0;transform:translate(-50%,-50px);}}
+img.avatar{width:80px;height:80px;border-radius:50%;transition:transform 0.3s;}
+img.avatar.happy{transform:scale(1.2) rotate(-10deg);}
+@media(max-width:900px){.flex{flex-direction:column;}}
 </style>
 </head>
 <body>
 <div class="container">
-  <header class="flex" style="justify-content:space-between; align-items:center;">
-    <h1>BharatAthlete</h1>
-    <div>
-      <div class="badge" id="userBadge">Novice</div><br>
-      <span>Streak: <span id="streak">0</span> days</span>
-    </div>
-  </header>
+<header class="flex" style="justify-content:space-between; align-items:center;">
+<h1>BharatAthlete</h1>
+<div>
+<div class="badge" id="userBadge">Novice</div><br>
+<span>Streak: <span id="streak">0</span> days</span>
+</div>
+</header>
 
-  <!-- MAIN CONTENT -->
-  <div class="flex" style="margin-top:10px;">
-    <div class="left" style="flex:1; position:relative;">
-      <div class="card">
-        <h3>Setup & Calibration</h3>
-        <div class="flex" style="gap:8px; margin-top:8px;">
-          <label>Height (cm)</label>
-          <input type="number" id="heightInput" placeholder="e.g. 170">
-          <button id="calibrateBtn">Calibrate</button>
-          <button id="startCamBtn">Start Camera</button>
-        </div>
-        <div style="position:relative; margin-top:12px;">
-          <video id="video" autoplay muted playsinline></video>
-          <canvas id="overlay" width="480" height="360"></canvas>
-        </div>
-        <div class="flex" style="margin-top:8px; flex-wrap:wrap;">
-          <button id="startTestBtn">Start Test</button>
-          <button id="stopTestBtn">Stop Test</button>
-          <button id="saveBtn">Save Result</button>
-          <button id="syncBtn">Sync</button>
-        </div>
-      </div>
+<div class="flex" style="margin-top:10px;">
+<div class="left" style="flex:1;">
+<div class="card">
+<h3>Profile</h3>
+<input type="text" id="username" placeholder="Enter Name">
+<button id="setAvatarBtn">Set Avatar</button><br>
+<img id="avatarImg" src="https://i.imgur.com/6YVJr2G.png" class="avatar" style="margin-top:8px;">
+</div>
 
-      <div class="card" style="margin-top:12px;">
-        <h3>Live Metrics</h3>
-        <div class="flex" style="margin-top:8px;">
-          <div class="metric">Jump (cm)<br><span id="jumpVal">0</span></div>
-          <div class="metric">Reps<br><span id="repsVal">0</span></div>
-          <div class="metric">Cheat Score<br><span id="cheatVal">0.0</span></div>
-          <div class="metric">Score<br><span id="scoreVal">0</span></div>
-        </div>
-      </div>
-    </div>
+<div class="card" style="margin-top:12px;">
+<h3>Metrics</h3>
+<div class="flex" style="margin-top:8px;">
+<div class="metric">Jump<br><span id="jumpVal">0</span>
+<div class="progress-bar"><div id="jumpBar" class="progress-fill"></div></div>
+</div>
+<div class="metric">Reps<br><span id="repsVal">0</span>
+<div class="progress-bar"><div id="repsBar" class="progress-fill"></div></div>
+</div>
+<div class="metric">Score<br><span id="scoreVal">0</span>
+<div class="progress-bar"><div id="scoreBar" class="progress-fill"></div></div>
+</div>
+</div>
+</div>
 
-    <!-- RIGHT PANEL -->
-    <div class="right" style="width:420px;">
-      <div class="card">
-        <h3>Leaderboard</h3>
-        <div class="leaderboard" id="leaderboard"></div>
-      </div>
-      <div class="card" style="margin-top:12px;">
-        <h3>Activity Log</h3>
-        <div class="log" id="log"></div>
-      </div>
-      <div class="card" style="margin-top:12px;">
-        <h3>Profile & Avatar</h3>
-        <div class="flex">
-          <input type="text" id="username" placeholder="Enter Name">
-          <button id="setAvatarBtn">Set Avatar</button>
-        </div>
-        <img id="avatarImg" src="https://i.imgur.com/6YVJr2G.png" width="80" height="80" style="margin-top:8px; border-radius:50%;">
-      </div>
-      <div class="card" style="margin-top:12px;">
-        <h3>Performance History</h3>
-        <canvas id="chart" width="400" height="200"></canvas>
-      </div>
-    </div>
-  </div>
+<div class="card" style="margin-top:12px;">
+<h3>Actions</h3>
+<button id="jumpBtn">Jump</button>
+<button id="situpBtn">Sit-Up</button>
+<button id="runBtn">Run</button>
+</div>
+</div>
+
+<div class="right" style="width:420px;">
+<div class="card">
+<h3>Leaderboard</h3>
+<div class="leaderboard" id="leaderboard"></div>
+</div>
+
+<div class="card" style="margin-top:12px;">
+<h3>Activity Log</h3>
+<div class="log" id="log"></div>
+</div>
+
+<div class="card" style="margin-top:12px;">
+<h3>Performance History</h3>
+<canvas id="chart" width="400" height="200"></canvas>
+</div>
+</div>
+</div>
 </div>
 
 <div id="confettiContainer" class="confetti"></div>
 
-<!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.4.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.4.6/dist/pose-detection.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1646424915/pose.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-(async ()=>{
-  const video=document.getElementById('video');
-  const overlay=document.getElementById('overlay');
-  const ctx=overlay.getContext('2d');
-  const startCamBtn=document.getElementById('startCamBtn');
-  const startTestBtn=document.getElementById('startTestBtn');
-  const stopTestBtn=document.getElementById('stopTestBtn');
-  const calibrateBtn=document.getElementById('calibrateBtn');
-  const saveBtn=document.getElementById('saveBtn');
-  const syncBtn=document.getElementById('syncBtn');
-  const logDiv=document.getElementById('log');
-  const leaderboardDiv=document.getElementById('leaderboard');
-  const heightInput=document.getElementById('heightInput');
-  const jumpVal=document.getElementById('jumpVal');
-  const repsVal=document.getElementById('repsVal');
-  const cheatVal=document.getElementById('cheatVal');
-  const scoreVal=document.getElementById('scoreVal');
-  const badgeEl=document.getElementById('userBadge');
-  const streakEl=document.getElementById('streak');
-  const usernameInput=document.getElementById('username');
-  const setAvatarBtn=document.getElementById('setAvatarBtn');
-  const avatarImg=document.getElementById('avatarImg');
-  const confettiContainer=document.getElementById('confettiContainer');
-  const chartCtx=document.getElementById('chart').getContext('2d');
+let jump=0, reps=0, score=0, streak=0;
+let username='Player';
+const jumpVal=document.getElementById('jumpVal');
+const repsVal=document.getElementById('repsVal');
+const scoreVal=document.getElementById('scoreVal');
+const streakEl=document.getElementById('streak');
+const logDiv=document.getElementById('log');
+const leaderboardDiv=document.getElementById('leaderboard');
+const badgeEl=document.getElementById('userBadge');
+const usernameInput=document.getElementById('username');
+const avatarImg=document.getElementById('avatarImg');
+const setAvatarBtn=document.getElementById('setAvatarBtn');
+const confettiContainer=document.getElementById('confettiContainer');
+const jumpBar=document.getElementById('jumpBar');
+const repsBar=document.getElementById('repsBar');
+const scoreBar=document.getElementById('scoreBar');
+const chartCtx=document.getElementById('chart').getContext('2d');
 
-  let detector=null, running=false, measuring=false, calibration=null, lastAnkleY=null;
-  let recordedFrames=[], jumpPeak=0, jumpCm=0, reps=0, score=0, cheatScore=0, history=[];
+let chart=new Chart(chartCtx,{type:'line',data:{labels:[],datasets:[{label:'Score',data:[],borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.2)'}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
 
-  let chart=new Chart(chartCtx,{type:'line',data:{labels:[],datasets:[{label:'Score',data:[],borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.2)'}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
+function log(msg){const p=document.createElement('div');p.innerText='['+new Date().toLocaleTimeString()+'] '+msg;logDiv.prepend(p);}
+function notify(msg){const n=document.createElement('div');n.className='notification';n.innerText=msg;document.body.appendChild(n);setTimeout(()=>n.remove(),2000);}
+function updateLeaderboard(){let data=JSON.parse(localStorage.getItem('ba_results')||'[]');data.sort((a,b)=>b.score-b.score);leaderboardDiv.innerHTML='';data.slice(0,10).forEach((r,i)=>{let div=document.createElement('div');div.innerHTML=`${i+1}. ${r.username||'Anon'} - Score: ${r.score}`;if(r.username===username) div.style.background='#06b6d4';leaderboardDiv.appendChild(div);});}
+function awardBadge(points){if(points>=80) badgeEl.innerText='Elite';else if(points>=50) badgeEl.innerText='Pro';else if(points>=20) badgeEl.innerText='Rising';else badgeEl.innerText='Novice';}
+function confettiBurst(){confettiContainer.innerHTML='';for(let i=0;i<100;i++){let div=document.createElement('div');div.style.width='6px';div.style.height='6px';div.style.background=['#f59e0b','#ef4444','#06b6d4','#22c55e'][Math.floor(Math.random()*4)];div.style.position='absolute';div.style.left=Math.random()*100+'%';div.style.top='0%';div.style.opacity=Math.random();div.style.transform=`rotate(${Math.random()*360}deg)`;confettiContainer.appendChild(div);let y=0;let intv=setInterval(()=>{y+=Math.random()*5;div.style.top=y+'px';if(y>window.innerHeight) clearInterval(intv);},20);}}
+function addScore(points){score+=points;scoreVal.innerText=score;scoreBar.style.width=Math.min(score,100)+'%';awardBadge(score);chart.data.labels.push(new Date().toLocaleTimeString());chart.data.datasets[0].data.push(score);chart.update();if(score%30===0){confettiBurst();notify('Milestone reached!');document.body.style.background='#11162a';setTimeout(()=>document.body.style.background='#0b0f23',500);avatarImg.classList.add('happy');setTimeout(()=>avatarImg.classList.remove('happy'),800);}}
 
-  function log(msg){ const p=document.createElement('div'); p.innerText='['+new Date().toLocaleTimeString()+'] '+msg; logDiv.prepend(p); }
+function addJump(){jump++;jumpVal.innerText=jump;jumpBar.style.width=Math.min(jump*5,100)+'%';addScore(5);reps++;repsVal.innerText=reps;repsBar.style.width=Math.min(reps*5,100)+'%';log('Performed Jump');saveProgress();updateLeaderboard();}
+function addSitup(){reps++;repsVal.innerText=reps;repsBar.style.width=Math.min(reps*5,100)+'%';addScore(3);log('Performed Sit-Up');saveProgress();updateLeaderboard();}
+function addRun(){addScore(10);log('Performed Run');saveProgress();updateLeaderboard();}
 
-  function updateLeaderboard(){
-    leaderboardDiv.innerHTML='';
-    let data=JSON.parse(localStorage.getItem('ba_results')||'[]');
-    data.sort((a,b)=>b.score-a.score);
-    data.slice(0,10).forEach((r,i)=>{
-      let div=document.createElement('div');
-      div.innerHTML=`${i+1}. ${r.username||'Anon'} - Score: ${r.score}`;
-      leaderboardDiv.appendChild(div);
-    });
-  }
+document.getElementById('jumpBtn').onclick=addJump;
+document.getElementById('situpBtn').onclick=addSitup;
+document.getElementById('runBtn').onclick=addRun;
+setAvatarBtn.onclick=()=>{username=usernameInput.value||'Player';log('Set username: '+username);};
 
-  function awardBadge(points){
-    if(points>80) badgeEl.innerText='Elite';
-    else if(points>50) badgeEl.innerText='Pro';
-    else if(points>20) badgeEl.innerText='Rising';
-    else badgeEl.innerText='Novice';
-  }
-
-  function confettiBurst(){
-    confettiContainer.innerHTML='';
-    for(let i=0;i<100;i++){
-      let div=document.createElement('div');
-      div.style.width='6px'; div.style.height='6px'; div.style.background=['#f59e0b','#ef4444','#06b6d4','#22c55e'][Math.floor(Math.random()*4)];
-      div.style.position='absolute'; div.style.left=Math.random()*100+'%';
-      div.style.top='0%'; div.style.opacity=Math.random();
-      div.style.transform=`rotate(${Math.random()*360}deg)`;
-      confettiContainer.appendChild(div);
-      let y=0;
-      let intv=setInterval(()=>{
-        y+=Math.random()*5;
-        div.style.top=y+'px';
-        if(y>window.innerHeight) clearInterval(intv);
-      },20);
-    }
-  }
-
-  async function initDetector(){
-    await tf.setBackend('webgl');
-    detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
-    log('Detector ready');
-  }
-
-  startCamBtn.onclick=async ()=>{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
-    video.srcObject=stream; await video.play();
-    overlay.width=video.videoWidth||480; overlay.height=video.videoHeight||360;
-    if(!detector) await initDetector();
-    log('Camera started');
-  };
-
-  calibrateBtn.onclick=async ()=>{
-    if(!detector){ alert('Start camera first'); return; }
-    const h=parseFloat(heightInput.value);
-    if(!h){ alert('Enter height'); return; }
-    let samples=[];
-    for(let i=0;i<20;i++){
-      const poses=await detector.estimatePoses(video,{flipHorizontal:false});
-      if(poses[0]){ const ys=poses[0].keypoints.map(k=>k.y).filter(y=>y!=null); if(ys.length) samples.push(Math.max(...ys)-Math.min(...ys)); }
-      await new Promise(r=>setTimeout(r,100));
-    }
-    if(samples.length==0){ alert('Calibration failed'); return; }
-    const medianPixel=samples.sort((a,b)=>a-b)[Math.floor(samples.length/2)];
-    calibration={pixelHeight:medianPixel, scale:h/medianPixel};
-    log('Calibration done. Scale: '+calibration.scale.toFixed(4));
-  };
-
-  startTestBtn.onclick
+function saveProgress(){let data=JSON.parse(localStorage.getItem('ba_results')||'[]');data.push({username,score,date:new Date().toISOString()});localStorage.setItem('ba_results',JSON.stringify(data));streak++;streakEl.innerText=streak;}
+updateLeaderboard();
+</script>
+</body>
+</html>
