@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>BharatAthlete — Web Prototype</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Roboto, Arial; margin:0; padding:12px; background:#0f172a; color:#e6eef8; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    h1 { margin:0; font-size:20px; color:#fff; }
+    .card { background:#111827; padding:12px; border-radius:10px; margin-top:12px; box-shadow:0 6px 18px rgba(2,6,23,.6); }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    button { background:#06b6d4; color:#042028; padding:10px 12px; border:none; border-radius:8px; font-weight:600; }
+    input[type="number"]{ padding:8px; border-radius:8px; border:none; width:120px; }
+    video { border-radius:10px; width:100%; max-width:420px; background:#000; }
+    canvas { position: absolute; left:12px; top: 200px; }
+    .row { display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; }
+    .metric { background:#071029; padding:10px; border-radius:8px; min-width:120px; text-align:center; }
+    .badge { padding:6px 8px; border-radius:999px; background:linear-gradient(90deg,#f59e0b,#ef4444); color:#111; font-weight:700; display:inline-block; }
+    footer { margin-top:18px; font-size:13px; color:#9aa8bf; }
+    @media (min-width:880px){ .layout{ display:flex; gap:18px; } .left{flex:1} .right{width:420px} }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>BharatAthlete — Web Prototype</h1>
+      <div style="font-size:12px;color:#9aa8bf">Demo: pose detection | jump + rep metrics | cheat heuristics | offline save</div>
+    </div>
+    <div style="text-align:right">
+      <div class="badge" id="userBadge">Novice</div>
+      <div style="font-size:12px;color:#9aa8bf">Streak: <span id="streak">0</span> days</div>
+    </div>
+  </header>
+
+  <div class="layout" style="margin-top:12px">
+    <div class="left">
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <label>Height (cm)</label>
+          <input id="heightInput" type="number" placeholder="e.g. 170" />
+          <button id="calibrateBtn">Calibrate</button>
+          <button id="startCamBtn">Start Camera</button>
+        </div>
+
+        <div style="position:relative;margin-top:12px">
+          <video id="video" playsinline autoplay muted></video>
+          <canvas id="overlay" width="420" height="315" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
+        </div>
+
+        <div class="controls">
+          <button id="startTestBtn">Start Test</button>
+          <button id="stopTestBtn">Stop Test</button>
+          <button id="saveBtn">Save Result</button>
+          <button id="syncBtn">Sync (simulate)</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div style="font-weight:700">Live Metrics</div>
+        <div class="row" style="margin-top:8px">
+          <div class="metric">Jump (cm)<div id="jumpVal" style="font-size:20px;font-weight:700">0</div></div>
+          <div class="metric">Reps<div id="repsVal" style="font-size:20px;font-weight:700">0</div></div>
+          <div class="metric">Cheat Score<div id="cheatVal" style="font-size:20px;font-weight:700">0.0</div></div>
+          <div class="metric">Score<div id="scoreVal" style="font-size:20px;font-weight:700">0</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="card">
+        <div style="font-weight:700">Activity Log</div>
+        <div id="log" style="margin-top:8px; max-height:300px; overflow:auto; font-size:13px; color:#cfe7ff"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div style="font-weight:700">How to use</div>
+        <ol style="margin-top:8px">
+          <li>Allow camera access on your phone.</li>
+          <li>Enter height & hit <b>Calibrate</b> (stand straight).</li>
+          <li>Hit <b>Start Test</b> and perform test; then <b>Stop</b>.</li>
+          <li>Save result & press <b>Sync</b> to simulate upload.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <footer>Tip: Use Chrome on Android for best compatibility. If model is slow, close other tabs.</footer>
+
+  <!-- TFJS & Pose Detection libs (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.4.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.4.6/dist/pose-detection.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1646424915/pose.js"></script>
+
+  <script>
+  (async ()=>{
+
+    // UI refs
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const ctx = overlay.getContext('2d');
+    const startCamBtn = document.getElementById('startCamBtn');
+    const startTestBtn = document.getElementById('startTestBtn');
+    const stopTestBtn = document.getElementById('stopTestBtn');
+    const calibrateBtn = document.getElementById('calibrateBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const syncBtn = document.getElementById('syncBtn');
+    const logDiv = document.getElementById('log');
+    const heightInput = document.getElementById('heightInput');
+
+    const jumpVal = document.getElementById('jumpVal');
+    const repsVal = document.getElementById('repsVal');
+    const cheatVal = document.getElementById('cheatVal');
+    const scoreVal = document.getElementById('scoreVal');
+    const badgeEl = document.getElementById('userBadge');
+    const streakEl = document.getElementById('streak');
+
+    // internal state
+    let detector = null;
